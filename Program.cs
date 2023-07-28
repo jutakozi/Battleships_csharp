@@ -1,157 +1,361 @@
 ﻿using System;
-
-namespace BattleshipsGame
+class Program
 {
-    class Program
+    static void Main(string[] args)
     {
-        static char[,] boardPlayer1 = new char[10, 10]; // Plansza gracza 1
-        static char[,] boardPlayer2 = new char[10, 10]; // Plansza gracza 2
-        static int shipsRemainingPlayer1 = 5; // Liczba pozostałych statków gracza 1
-        static int shipsRemainingPlayer2 = 5; // Liczba pozostałych statków gracza 2
-        static bool debugMode = false; // Tryb debugowania (widoczność statków)
-        static bool player1Turn = true; // Zmienna wskazująca, czy jest tura gracza 1
+        Console.WriteLine("Witaj w grze w statki!");
 
-        static void Main(string[] args)
+        // Pytamy użytkownika, czy chce włączyć tryb debug.
+        bool isDebugMode = AskForDebugMode();
+
+        // Tworzymy nową instancję klasy Game, która będzie zarządzać grą.
+        Game game = new Game(isDebugMode);
+
+        // Inicjalizujemy położenie statków na planszach.
+        game.InitializeShips();
+
+        // Inicjalizujemy plansze gracza i przeciwnika (początkowo są puste).
+        game.InitializeBoard();
+
+        // Główna pętla gry, która działa dopóki gra nie jest zakończona.
+        while (!game.IsGameOver())
         {
-            InitializeBoard(boardPlayer1); // Inicjalizacja planszy dla gracza 1
-            InitializeBoard(boardPlayer2); // Inicjalizacja planszy dla gracza 2
-            PlaceShips(boardPlayer1); // Umieszczenie statków na planszy gracza 1
-            PlaceShips(boardPlayer2); // Umieszczenie statków na planszy gracza 2
+            // Czyścimy konsolę przed wyświetleniem planszy.
+            Console.Clear();
 
-            // Pętla główna gry, działająca dopóki jednemu z graczy nie zostaną zatopione wszystkie statki
-            while (shipsRemainingPlayer1 > 0 && shipsRemainingPlayer2 > 0)
-            {
-                if (player1Turn)
-                {
-                    Console.WriteLine("Player 1's Turn");
-                    PlayerTurn(boardPlayer2); // Tura gracza 1
-                }
-                else
-                {
-                    Console.WriteLine("Player 2's Turn");
-                    PlayerTurn(boardPlayer1); // Tura gracza 2
-                }
+            // Wyświetlamy plansze gracza i przeciwnika.
+            game.DisplayBoards();
 
-                player1Turn = !player1Turn; // Zmiana tury na przeciwnika po każdej rundzie
-            }
+            // Gracz wykonuje ruch.
+            game.PlayerMove();
 
-            // Wyświetlenie wyniku gry
-            if (shipsRemainingPlayer1 == 0)
+            // Jeśli gra nadal nie jest zakończona, przeciwnik wykonuje ruch.
+            if (!game.IsGameOver())
             {
-                Console.WriteLine("Player 2 wins! All ships of Player 1 have been sunk.");
-            }
-            else
-            {
-                Console.WriteLine("Player 1 wins! All ships of Player 2 have been sunk.");
+                game.EnemyMove();
             }
         }
 
-        // Inicjalizacja planszy ustawiająca wszystkie pola na "-"
-        static void InitializeBoard(char[,] board)
+        // Gra się zakończyła, wyświetlamy końcowy wynik.
+        Console.Clear();
+        game.DisplayBoards();
+        game.DisplayResult();
+
+        // Czekamy na dowolny klawisz przed zakończeniem programu.
+        Console.ReadLine();
+    }
+
+    // Metoda pyta użytkownika, czy chce włączyć tryb debug i zwraca odpowiednią wartość boolowską.
+    static bool AskForDebugMode()
+    {
+        Console.Write("Czy chcesz włączyć tryb debug? (tak/nie): ");
+        string input = Console.ReadLine();
+        return input.ToLower() == "tak";
+    }
+}
+
+class Game
+{
+    // Stała rozmiaru planszy.
+    private const int BoardSize = 10;
+
+    // Dwuwymiarowe tablice reprezentujące plansze gracza i przeciwnika.
+    private char[,] playerBoard = new char[BoardSize, BoardSize];
+    private char[,] enemyBoard = new char[BoardSize, BoardSize];
+
+    // Obiekty statków gracza i przeciwnika.
+    private Ship playerShip;
+    private Ship enemyShip;
+
+    // Obiekt Random do generowania losowych pozycji statków.
+    private Random random = new Random();
+
+    // Zmienna przechowująca informację o trybie debug.
+    private bool isDebugMode;
+
+    public Game(bool isDebugMode)
+    {
+        this.isDebugMode = isDebugMode;
+    }
+
+    // Metoda inicjalizuje położenie statków na planszach.
+    public void InitializeShips()
+    {
+        playerShip = new Ship();
+        enemyShip = new Ship();
+
+        // Losowo umiejscawiamy statek gracza na planszy (uproszczone).
+        int playerX = random.Next(0, BoardSize - Ship.Size);
+        int playerY = random.Next(0, BoardSize);
+        playerShip.Place(playerX, playerY);
+
+        int enemyX, enemyY;
+        do
         {
-            for (int row = 0; row < 10; row++)
+            enemyX = random.Next(0, BoardSize - Ship.Size);
+            enemyY = random.Next(0, BoardSize);
+        } while (AreShipsTooClose(playerX, playerY, enemyX, enemyY));
+
+        enemyShip.Place(enemyX, enemyY);
+    }
+
+    private bool AreShipsTooClose(int playerX, int playerY, int enemyX, int enemyY)
+    {
+        // Sprawdzamy, czy statki są zbyt blisko na osi X lub Y.
+        bool tooCloseOnX = Math.Abs(playerX - enemyX) <= 2;
+        bool tooCloseOnY = Math.Abs(playerY - enemyY) <= 2;
+
+        // Jeśli choć jedna z tych wartości jest prawdziwa, to oznacza, że statki są zbyt blisko.
+        return tooCloseOnX || tooCloseOnY;
+    }
+
+    // Metoda inicjalizuje plansze gracza i przeciwnika.
+    public void InitializeBoard()
+    {
+        for (int x = 0; x < BoardSize; x++)
+        {
+            for (int y = 0; y < BoardSize; y++)
             {
-                for (int col = 0; col < 10; col++)
-                {
-                    board[row, col] = '-';
-                }
+                playerBoard[x, y] = '~'; // '~' oznacza wodę
+                enemyBoard[x, y] = '~';
             }
         }
 
-        // Umieszczenie 5 statków na planszy
-        static void PlaceShips(char[,] board)
+        if (isDebugMode)
         {
-            Random random = new Random();
+            // W trybie debug pokaż położenie statków na planszy.
+            DisplayDebugBoard(playerShip, playerBoard);
+            DisplayDebugBoard(enemyShip, enemyBoard);
+        }
+    }
 
-            for (int i = 0; i < 5; i++)
-            {
-                int row = random.Next(10); // Losowy wybór wiersza
-                int col = random.Next(10); // Losowy wybór kolumny
-
-                if (board[row, col] == '-')
-                {
-                    board[row, col] = 'X'; // Umieszczenie statku na planszy
-                }
-                else
-                {
-                    i--; // Ponowne umieszczenie statku w przypadku zajętego pola
-                }
-            }
+    // Metoda dodaje na planszy reprezentację statku w trybie debug.
+    private void DisplayDebugBoard(Ship ship, char[,] board)
+    {
+        for (int i = 0; i < Ship.Size; i++)
+        {
+            int x = ship.X + i;
+            int y = ship.Y;
+            board[x, y] = 'S'; // 'S' oznacza statek
         }
 
-        // Funkcja obsługująca turę gracza
-        static void PlayerTurn(char[,] targetBoard)
+        for (int x = 0; x < BoardSize; x++)
         {
-            DisplayBoard(targetBoard); // Wyświetlenie planszy
-
-            Console.WriteLine("Enter row and column (e.g., A5): ");
-            string input = Console.ReadLine(); // Odczytanie wiersza i kolumny wprowadzonej przez gracza
-
-            // Sprawdzenie czy gracz chce włączyć tryb debugowania
-            if (input.ToLower() == "debug")
+            for (int y = 0; y < BoardSize; y++)
             {
-                debugMode = !debugMode; // Przełączanie trybu debugowania (widoczności statków)
-                Console.WriteLine("Debug mode: " + (debugMode ? "Enabled" : "Disabled"));
-                PlayerTurn(targetBoard); // Rekurencyjne wywołanie tury dla tego samego gracza
-                return; // Zakończenie funkcji w przypadku trybu debugowania
-            }
-
-            // Walidacja wprowadzonych danych
-            if (input.Length != 2)
-            {
-                Console.WriteLine("Invalid input. Try again.");
-                PlayerTurn(targetBoard); // Rekurencyjne wywołanie tury dla tego samego gracza
-                return;
-            }
-
-            int row = input[0] - 'A'; // Konwersja wiersza na liczbę
-            int col = input[1] - '0'; // Konwersja kolumny na liczbę
-
-            // Sprawdzenie czy wprowadzone dane są w zakresie planszy
-            if (row < 0 || row >= 10 || col < 0 || col >= 10)
-            {
-                Console.WriteLine("Invalid input. Try again.");
-                PlayerTurn(targetBoard); // Rekurencyjne wywołanie tury dla tego samego gracza
-                return;
-            }
-
-            // Obsługa trafienia lub spudłowania
-            if (targetBoard[row, col] == 'X')
-            {
-                Console.WriteLine("You hit a ship!"); // Gracz trafił statek przeciwnika
-                targetBoard[row, col] = '!'; // Oznaczenie trafienia na planszy przeciwnika
-                if (targetBoard == boardPlayer1)
-                    shipsRemainingPlayer1--; // Zmniejszenie liczby pozostałych statków gracza 1
-                else
-                    shipsRemainingPlayer2--; // Zmniejszenie liczby pozostałych statków gracza 2
-            }
-            else if (targetBoard[row, col] == '!' || targetBoard[row, col] == '-')
-            {
-                Console.WriteLine("You missed."); // Gracz spudłował
-                targetBoard[row, col] = '#'; // Oznaczenie chybionego strzału na planszy przeciwnika
-            }
-        }
-
-        // Wyświetlenie planszy
-        static void DisplayBoard(char[,] board)
-        {
-            Console.WriteLine("   0 1 2 3 4 5 6 7 8 9");
-            for (int row = 0; row < 10; row++)
-            {
-                Console.Write((char)('A' + row) + "  "); // Wyświetlanie indeksów wierszy
-                for (int col = 0; col < 10; col++)
+                if (board[x, y] == 'O') // Jeśli to pole to było oznaczone jako 'O'
                 {
-                    if (debugMode || board[row, col] != 'X')
-                    {
-                        Console.Write(board[row, col] + " "); // Wyświetlanie stanu planszy (pól)
-                    }
-                    else
-                    {
-                        Console.Write("- "); // Wyświetlanie nieodkrytych pól statków w trybie debugowania
-                    }
+                    board[x, y] = '~'; // Przywróć oznaczenie dla wody
                 }
-                Console.WriteLine(); // Nowa linia po każdym wierszu
             }
         }
     }
+
+    // Metoda wyświetla plansze gracza i przeciwnika.
+    public void DisplayBoards()
+    {
+        Console.WriteLine("Twoja plansza:");
+        DisplayBoard(playerBoard);
+
+        Console.WriteLine("Plansza przeciwnika:");
+        DisplayBoard(enemyBoard);
+    }
+
+    // Metoda wyświetla planszę.
+    private void DisplayBoard(char[,] board)
+    {
+        Console.Write("   ");
+        for (int i = 0; i < BoardSize; i++)
+        {
+            Console.BackgroundColor = ConsoleColor.Black;
+            Console.Write($"{i} ");
+            Console.ResetColor();
+        }
+        Console.WriteLine();
+
+        for (int x = 0; x < BoardSize; x++)
+        {
+            Console.Write($"{x} |");
+            for (int y = 0; y < BoardSize; y++)
+            {
+                char cell = board[x, y];
+                if (isDebugMode && cell == '~')
+                {
+                    Console.BackgroundColor = ConsoleColor.Blue;
+                    Console.Write("- ");
+                }
+                else if (cell == 'S')
+                {
+                    Console.BackgroundColor = ConsoleColor.Yellow;
+                    Console.ForegroundColor = ConsoleColor.Black;
+                    Console.Write($"{cell} ");
+                }
+                else if (cell == 'X')
+                {
+                    Console.BackgroundColor = ConsoleColor.Red;
+                    Console.ForegroundColor = ConsoleColor.Black;
+                    Console.Write($"{cell} ");
+                }
+                else if (cell == 'O')
+                {
+                    Console.BackgroundColor = ConsoleColor.White;
+                    Console.ForegroundColor = ConsoleColor.Black;
+                    Console.Write($"{cell} ");
+                }
+                else
+                {
+                    Console.BackgroundColor = ConsoleColor.Cyan;
+                    Console.ForegroundColor = ConsoleColor.Black;
+                    Console.Write($"{cell} ");
+                }
+                Console.ResetColor();
+            }
+            Console.WriteLine();
+        }
+
+        // Dodajemy dodatkową linię na dole planszy, aby była symetryczna.
+        Console.Write("   ");
+        for (int i = 0; i < BoardSize; i++)
+        {
+            Console.BackgroundColor = ConsoleColor.Black;
+            Console.Write("--");
+            Console.ResetColor();
+        }
+        Console.WriteLine();
+    }
+
+    // Metoda odpowiada za ruch gracza.
+    public void PlayerMove()
+    {
+        Console.WriteLine("\nTwój ruch!");
+
+        int x, y;
+
+        // Pobieramy współrzędne X od gracza, dopóki nie poda poprawnej wartości.
+        do
+        {
+            Console.Write("Podaj X: ");
+        } while (!int.TryParse(Console.ReadLine(), out x) || x < 0 || x >= BoardSize);
+
+        // Pobieramy współrzędne Y od gracza, dopóki nie poda poprawnej wartości.
+        do
+        {
+            Console.Write("Podaj Y: ");
+        } while (!int.TryParse(Console.ReadLine(), out y) || y < 0 || y >= BoardSize);
+
+        // Sprawdzamy, czy strzał gracza trafił statek przeciwnika.
+        if (enemyShip.IsHit(x, y))
+        {
+            // Jeśli strzał trafił, oznaczamy trafienie na planszy przeciwnika znakiem 'X'.
+            enemyBoard[x, y] = 'X';
+            Console.WriteLine("Trafiony!");
+        }
+        else
+        {
+            // Jeśli strzał nie trafił, oznaczamy nietrafienie na planszy przeciwnika znakiem 'O'.
+            enemyBoard[x, y] = 'O';
+            Console.WriteLine("Pudło!");
+        }
+
+        // Oczekujemy na dowolny klawisz przed kontynuacją gry.
+        Console.WriteLine("Naciśnij dowolny klawisz, aby kontynuować...");
+        Console.ReadKey();
+    }
+
+    // Metoda odpowiada za ruch przeciwnika.
+    // Metoda odpowiada za ruch przeciwnika.
+    public void EnemyMove()
+    {
+        Console.WriteLine("\nRuch przeciwnika...");
+
+        int x, y;
+
+        // Wybieramy współrzędne X i Y przeciwnika losowo (bez unikania pól).
+        x = random.Next(0, BoardSize);
+        y = random.Next(0, BoardSize);
+
+        if (playerShip.IsHit(x, y))
+        {
+            // Jeśli strzał przeciwnika trafił statek gracza, oznaczamy trafienie na planszy gracza znakiem 'X'.
+            playerBoard[x, y] = 'X';
+            Console.WriteLine("Twój statek został trafiony!");
+        }
+        else
+        {
+            // Jeśli strzał przeciwnika nie trafił, oznaczamy nietrafienie na planszy gracza znakiem 'O'.
+            playerBoard[x, y] = 'O';
+            Console.WriteLine("Przeciwnik spudłował!");
+        }
+
+        Console.WriteLine("Naciśnij dowolny klawisz, aby kontynuować...");
+        Console.ReadKey();
+    }
+
+    // Metoda sprawdza, czy gra się zakończyła.
+    public bool IsGameOver()
+    {
+        return playerShip.IsSunk() || enemyShip.IsSunk();
+    }
+
+    // Metoda wyświetla wynik gry.
+    public void DisplayResult()
+    {
+        if (playerShip.IsSunk())
+        {
+            Console.WriteLine("Przegrałeś!");
+        }
+        else
+        {
+            Console.WriteLine("Gratulacje! Wygrałeś!");
+        }
+    }
 }
+
+class Ship
+{
+    // Stała określająca rozmiar statku.
+    public const int Size = 3;
+
+    // Współrzędne statku na planszy.
+    public int X { get; private set; }
+    public int Y { get; private set; }
+
+    // Tablica przechowująca informacje o trafieniach w statek.
+    private bool[] hits;
+
+    // Metoda ustawia położenie statku na planszy.
+    public void Place(int x, int y)
+    {
+        X = x;
+        Y = y;
+        hits = new bool[Size];
+    }
+
+    // Metoda sprawdza, czy dany strzał trafił statek.
+    public bool IsHit(int x, int y)
+    {
+        for (int i = 0; i < Size; i++)
+        {
+            if (!hits[i] && X + i == x && Y == y)
+            {
+                hits[i] = true;
+                return true;
+            }
+        }
+        return false;
+    }
+
+    // Metoda sprawdza, czy statek został trafiony
+    public bool IsSunk()
+    {
+        foreach (var hit in hits)
+        {
+            if (!hit)
+            {
+                return false;
+            }
+        }
+        return true;
+    }
+}
+
