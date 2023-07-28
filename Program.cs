@@ -317,8 +317,8 @@ class Ship
     public const int Size = 3;
 
     // Współrzędne statku na planszy.
-    public int X { get; private set; }
-    public int Y { get; private set; }
+    public int X { get; set; }
+    public int Y { get; set; }
 
     // Tablica przechowująca informacje o trafieniach w statek.
     private bool[] hits;
@@ -331,31 +331,60 @@ class Ship
         hits = new bool[Size];
     }
 
-    // Metoda sprawdza, czy dany strzał trafił statek.
+    // Metoda sprawdza, czy dane współrzędne (x, y) reprezentują trafienie w statek.
+    // Parametry:
+    //   x: Współrzędna X strzału na planszy.
+    //   y: Współrzędna Y strzału na planszy.
+    // Zwraca:
+    //   true, jeśli strzał trafił w statek (w niezatopioną część statku).
+    //   false, jeśli strzał nie trafił w statek lub jeśli ta część statku już została trafiona.
     public bool IsHit(int x, int y)
     {
+        // Przechodzimy przez każdą część statku przy użyciu pętli "for".
         for (int i = 0; i < Size; i++)
         {
+            // Sprawdzamy, czy dana część statku nie została jeszcze trafiona (!hits[i]).
+            // Oraz czy współrzędne strzału (x, y) odpowiadają pozycji danej części statku.
+            // Jeśli warunek jest spełniony, oznacza to, że strzał trafił w niezatopioną część statku.
             if (!hits[i] && X + i == x && Y == y)
             {
+                // Ustawiamy wartość hits[i] na true, co oznacza, że dana część statku została trafiona.
                 hits[i] = true;
+
+                // Zwracamy true, wskazując, że strzał trafił w statek.
                 return true;
             }
         }
+
+        // Jeśli pętla nie znalazła żadnej części statku, która była trafiona,
+        // zwracamy false, oznaczając, że strzał nie trafił w żadną część statku.
         return false;
     }
 
-    // Metoda sprawdza, czy statek został trafiony
+    // Metoda sprawdza, czy statek został zatopiony, czyli czy wszystkie jego części zostały trafione.
+    // Zwraca:
+    //   true, jeśli wszystkie części statku zostały trafione (statek jest zatopiony).
+    //   false, jeśli przynajmniej jedna część statku nie została trafiona (statek nie jest zatopiony).
     public bool IsSunk()
     {
+        // Przechodzimy przez każdą część statku przy użyciu pętli "foreach".
         foreach (var hit in hits)
         {
+            // Sprawdzamy, czy dana część statku została trafiona.
+            // Warunek "!hit" oznacza "jeśli hit jest false", czyli sprawdzamy, czy hit jest równy false.
+            // Jeśli hit jest false, to oznacza, że dana część statku nie została trafiona.
             if (!hit)
             {
+                // Jeśli znaleźliśmy część statku, która nie została trafiona, to od razu zwracamy false,
+                // co oznacza, że statek nie jest zatopiony.
                 return false;
             }
         }
+
+        // Jeśli pętla nie znalazła żadnej części statku, która nie została trafiona,
+        // to oznacza, że wszystkie części statku są trafione (wszystkie elementy w tablicy hits są true).
+        // W takim przypadku, zwracamy true, co oznacza, że statek jest zatopiony.
         return true;
     }
-}
 
+}
